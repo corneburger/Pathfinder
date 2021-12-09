@@ -1,10 +1,13 @@
-from typing import ChainMap
 import pygame   #   For visualization
 import math
 from queue import PriorityQueue  # List and algorithm that returns smallest value
 import time
 from tkinter import *   # Tkinter for option_menu interface
 from tkinter import ttk
+
+from pygame import color
+
+# clock = pygame.time.Clock()   # Create a clock to slow down the visualization
 
 # Define color codes:
 RED = (255, 0, 0)
@@ -18,11 +21,18 @@ ORANGE = (255, 165 ,0)
 GREY = (128, 128, 128)
 TURQUOISE = (64, 224, 208)
 
+
 # Pygame window setup
 WIDTH = 800
 HEIGHT = 800
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))   # Set up Window
 pygame.display.set_caption("Path Finding Algorithm") # Window caption
+
+
+# Font for pygame
+pygame.init()
+font = pygame.font.SysFont("arial", 10)
+textsurface = font.render("text", TRUE, BLACK)  # "text", antialias, color
 
 
 def onsubmit():
@@ -32,11 +42,16 @@ def onsubmit():
 # Tk window:
 option_menu = Tk()
 option_menu.title("Option menu")
-option_menu.geometry('350x400+580+200')
+# option_menu.geometry('350x650+580+120')
+option_menu.geometry('350x480+580+120')
 # option_menu.config(bg="#447c84")
+
 # Tk variables:
 distance_radio = IntVar()    # Tkinter integer variable to know radiobutton option
 algorithm_radio = IntVar()
+diagonal_chk = IntVar()
+show_score_chk = IntVar()
+
 # Tk objects
 lbl_distance = Label(option_menu, text = 'Distance Calculation: ', anchor="w", width = 20)
 r_euclidean = Radiobutton(option_menu, text = "Manhattan ", value = 1, var = distance_radio, anchor="w", width = 20)
@@ -47,7 +62,11 @@ r_dijkstra = Radiobutton(option_menu, text = "Dijkstra's ", value = 1, var = alg
 r_A_star = Radiobutton(option_menu, text = "A* ", value = 2, var = algorithm_radio, anchor="w", width = 20)
 r_weighted_A_star = Radiobutton(option_menu, text = "Weighted A* ", value = 3, var = algorithm_radio, anchor="w", width = 20)
 r_dynamic_weighted_A_star = Radiobutton(option_menu, text = "Dynamic Weighted A* ", value = 4, var = algorithm_radio, anchor="w", width = 20)
+chk_diagonal_movement = Checkbutton(option_menu, text = "Diagonal movement ", var = diagonal_chk, anchor="w", width = 20)
+chk_show_score = Checkbutton(option_menu, text = "Show score ", var = show_score_chk, anchor="w", width = 20)
+# lstbox_storage = Listbox(option_menu, width = 30)
 btn_submit = Button(option_menu, text ='Submit', command = onsubmit, height = 2, width = 10)
+
 # Tk placement  (Use grid instead of pack for placement on parent
 lbl_distance.grid(column = 0, row = 0, pady = 10, padx = 10)
 r_euclidean.grid(column = 2, row = 0, pady = 10)
@@ -58,14 +77,21 @@ r_dijkstra.grid(column = 2, row = 3, pady = 10)
 r_A_star.grid(column = 2, row = 4, pady = 10)
 r_weighted_A_star.grid(column = 2, row = 5, pady = 10)
 r_dynamic_weighted_A_star.grid(column = 2, row = 6, pady = 10)
-btn_submit.grid(columnspan = 3, row = 7, pady = 20)
+chk_diagonal_movement.grid(column = 0, row = 7, pady = 10)
+chk_show_score.grid(column = 0, row = 8, pady = 10)
+# lstbox_storage.grid(columnspan = 3, row = 9)
+btn_submit.grid(columnspan = 3, row = 10, pady = 20)
+
+# Populate lists:
+# mylist = ["First", "Second", "Third"]
+# for item in mylist:
+#     # lstbox_storage.insert("end", item)
+#     lstbox_storage.insert(0, item)
+
 # Tk functionality
 option_menu.update()
 mainloop()
-
-def onclose():
-    results.quit()
-    results.withdraw()
+    
 
 # Tk window
 results = Tk()
@@ -76,7 +102,7 @@ lbl_distance = Label(results, text = "Distance: ", anchor="w", width = 20)
 lbl_distance_a = Label(results, text = " ", anchor="w", width = 20)
 lbl_time_taken = Label(results, text = "Time taken: ", anchor="w", width = 20)
 lbl_time_taken_a = Label(results, text = " ", anchor="w", width = 20)
-btn_close = Button(results, text ='Close', command=onclose, height = 2, width = 10)
+btn_close = Button(results, text ='Close', command = results.withdraw, height = 2, width = 10)
 # Tk placement
 lbl_distance.grid(column = 0, row = 0, pady = 10, padx = 5)
 lbl_distance_a.grid(column = 1, row = 0, pady = 10)
@@ -85,9 +111,26 @@ lbl_time_taken_a.grid(column = 1, row = 1, pady = 10)
 btn_close.grid(columnspan = 2, row = 2, pady = 20, padx = 5)
 
 
+# def saveboundries():
+#     save.quit()
+#     save.withdraw()
+
+# # Tk window
+# save = Tk()
+# save.title("Save boundries")
+# save.geometry("300x300")
+
+# # Tk objects
+# lbl_save_boundries = Label(save, text = "Save boundries", anchor = "w", width = 20)
+# btn_save = Button(save, text = "Save boundries", command = saveboundries, width = 20, height = 2)
+
+# # Tk placement
+# lbl_save_boundries.grid(column = 0, row = 0)
+
+
 class node: # Class to keep track of nodes (Cubes)
     
-    def __init__(self, row, col, width, total_rows):    # Attributes of the class "node"
+    def __init__(self, row, col, width, total_rows, f_score):    # Attributes of the class "node"
         self.row = row
         self.col = col
         self.x = row * width
@@ -96,6 +139,7 @@ class node: # Class to keep track of nodes (Cubes)
         self.neighbors = [] # List for neighbors
         self.width = width
         self.total_rows = total_rows
+        self.f_score = f_score
 
     # Check status functions:
 
@@ -143,20 +187,41 @@ class node: # Class to keep track of nodes (Cubes)
     def draw(self, win):
         pygame.draw.rect(win, self.color, (self.x, self.y, self.width, self.width))   # draw rectangle in pygame 
 
+    def update_f_score(self, score):
+        self.f_score = score
+
+    def insert_text(self, win, text):
+        score1 = font.render(str(text), TRUE, BLACK)  # "text", antialias, color
+        win.blit(score1, (self.x + 2.5, self.y + 2.5))
+
     def update_neighbors(self, grid):   # Check satus of neighbors to make sure not barriers
         self.neighbors = []
-        if self.row < (self.total_rows - 1) and not grid[self.row + 1][self.col].is_barrier(): # Check if not bottom edge and check if row below is not a barrier
-            self.neighbors.append(grid[self.row + 1][self.col])
 
         if self.row > 0 and not grid[self.row - 1][self.col].is_barrier(): # Check if not top edge and check if row above is not a barrier
             self.neighbors.append(grid[self.row - 1][self.col])
 
-        if self.col < (self.total_rows - 1) and not grid[self.row][self.col + 1].is_barrier(): # Check if not right edge and check if row to right is not a barrier
-            self.neighbors.append(grid[self.row][self.col + 1])        
-        
+        if self.row < (self.total_rows - 1) and not grid[self.row + 1][self.col].is_barrier(): # Check if not bottom edge and check if row below is not a barrier
+            self.neighbors.append(grid[self.row + 1][self.col])
+
         if self.col > 0 and not grid[self.row][self.col - 1].is_barrier(): # Check if not left edge and check if row to left is not a barrier
             self.neighbors.append(grid[self.row][self.col - 1])
 
+        if self.col < (self.total_rows - 1) and not grid[self.row][self.col + 1].is_barrier(): # Check if not right edge and check if row to right is not a barrier
+            self.neighbors.append(grid[self.row][self.col + 1])        
+        
+        if (diagonal_chk.get() == 1):   # Also add diagonal entries as neighbors
+
+            if self.row > 0 and self.col > 0 and not grid[self.row - 1][self.col - 1].is_barrier(): # Top Left
+                self.neighbors.append(grid[self.row - 1][self.col - 1])
+
+            if self.row > 0 and self.col < (self.total_rows - 1) and not grid[self.row - 1][self.col + 1].is_barrier(): # Top Right
+                self.neighbors.append(grid[self.row - 1][self.col + 1])
+
+            if self.row < (self.total_rows - 1) and self.col > 0 and not grid[self.row + 1][self.col - 1].is_barrier(): # Btm Left
+                self.neighbors.append(grid[self.row + 1][self.col - 1])
+
+            if self.row < (self.total_rows - 1) and self.col < (self.total_rows - 1) and not grid[self.row + 1][self.col + 1].is_barrier(): # Btm Right
+                self.neighbors.append(grid[self.row + 1][self.col + 1])
 
     def __lt__(self, other):    # Less than # To compare two nodes
         return False
@@ -180,12 +245,16 @@ def h(p1, p2):  #Distance measurement. Use manhattan/ absolute distance_radio be
         dx = abs(x1 - x2)  
         dy = abs(y1 - y2) 
         D = 1
-        D2 = 1  # D2 would be sqrt(1) if we could have moved diagonally   
+        if (diagonal_chk.get() == 1):  # D2 is sqrt(1) if we can move diagonally
+            D2 = math.sqrt(1)
+        else:
+            D2 = 1
+    
         return D*(dx + dy) + (D2 - 2*D) * min(dx, dy)
 
-    # elif (distance_radio.get() == 1):     # Manhattan distance 
-    else: 
+    else:   # Manhattan distance  
         return abs(x1 - x2) + abs (y1 - y2)
+
     
 def reconstruct_path(came_from, current, draw):
     counter = 0
@@ -198,7 +267,7 @@ def reconstruct_path(came_from, current, draw):
     lbl_distance_a.config(text = counter)
 
 
-def A_star(draw, grid, start, end):
+def A_star(draw, grid, start, end, win):
     count = 0
     open_set = PriorityQueue()  # Create open set   (use the priority que to always get the smallest element (Smallest f_score))
     open_set.put((0, count, start)) # Add start node to open set # 0 is F score of start (Use count for tiebreakers)
@@ -221,7 +290,12 @@ def A_star(draw, grid, start, end):
             if event.type == pygame.QUIT:   # Because executing loop inside main while we still need to check if user quit
                 pygame.quit()
 
-        current = open_set.get()[2]  # Get node with smallest f_score  # (f_score, count, node)  # In beginnning wil be start node because no other nodes yet
+        # current = open_set.get()[2]  # Get node with smallest f_score  # (f_score, count, node)  # In beginnning wil be start node because no other nodes yet
+        myreturn = open_set.get()
+        current = myreturn[2]
+        cur_f_score = myreturn[1]
+        # current.update_f_score(str(cur_f_score))     # Update the f-score of the Node
+
         open_set_hash.remove(current)   # Remove current node from open set hash to syncronize 2 sets
 
         if current == end:  # Found the end node and can make path
@@ -232,11 +306,14 @@ def A_star(draw, grid, start, end):
 
         for neighbor in current.neighbors: # Loop through all 4 neighbors of current node   # Check which path to neighbor its the fastest 
             temp_g_score = g_score[current] + 1     # neighbors is 1 from current node
-
             if temp_g_score < g_score[neighbor]:  # If g_score improves then we update path to the neighbor
                 came_from[neighbor] = current   # Came from is a list to that node
                 g_score[neighbor] = temp_g_score    # Neighbor is 1 position away
                 f_score[neighbor] = temp_g_score + h(neighbor.get_pos(), end.get_pos()) # h distnace is distnace to end 
+                if (show_score_chk.get() == 1):
+                    neighbor.update_f_score(str(f_score[neighbor]))     # Update the f-score of the Node
+                else:
+                    neighbor.update_f_score("")
 
                 if neighbor not in open_set_hash:   # Check if neighbor in open set. If not then add to open set
                     count += 1  
@@ -292,6 +369,10 @@ def weighted_A_star(draw, grid, start, end):
                 came_from[neighbor] = current   # Came from is a list to that node
                 g_score[neighbor] = temp_g_score    # Neighbor is 1 position away
                 f_score[neighbor] = temp_g_score + e*h(neighbor.get_pos(), end.get_pos()) # Using e as weight for distance to end h
+                if (show_score_chk.get() == 1):
+                    neighbor.update_f_score(str(f_score[neighbor]))     # Update the f-score of the Node
+                else:
+                    neighbor.update_f_score("")
 
                 if neighbor not in open_set_hash:   # Check if neighbor in open set. If not then add to open set
                     count += 1  
@@ -359,6 +440,10 @@ def dynamic_weighted_A_star(draw, grid, start, end):
 
 
                 f_score[neighbor] = temp_g_score + w*h(neighbor.get_pos(), end.get_pos()) # h distnace is distnace to end 
+                if (show_score_chk.get() == 1):
+                    neighbor.update_f_score(str(f_score[neighbor]))     # Update the f-score of the Node
+                else:
+                    neighbor.update_f_score("")
 
                 if neighbor not in open_set_hash:   # Check if neighbor in open set. If not then add to open set
                     count += 1  
@@ -408,6 +493,10 @@ def Dijkstra(draw, grid, start, end):
             if temp_g_score < g_score[neighbor]:  # If g_score improves then we update path to the neighbor
                 came_from[neighbor] = current   # Came from is a list to that node
                 g_score[neighbor] = temp_g_score    # Neighbor is 1 position away
+                if (show_score_chk.get() == 1):
+                    neighbor.update_f_score(str(g_score[neighbor]))     # Update the f-score of the Node
+                else:
+                    neighbor.update_f_score("")
 
                 if neighbor not in open_set_hash:   # Check if neighbor in open set. If not then add to open set
                     count += 1  
@@ -431,7 +520,7 @@ def make_grid(rows, width):     # Grid of nodes
     for i in range (rows):  # Rows
         grid.append([])
         for j in range(rows):   # Columns
-            Node = node(i, j, gap, rows)
+            Node = node(i, j, gap, rows, " ")
             grid[i].append(Node)    # Add node to grid
 
     return grid
@@ -453,9 +542,13 @@ def draw(win, grid, rows, width):
     for row in grid:
         for Node in row:
             Node.draw(win)
+            # print(Node.get_f_score)
+
+            Node.insert_text(win, getattr(Node, "f_score"))
     
     draw_grid(win, rows, width)
     pygame.display.update()
+    # clock.tick(1000)
 
 
 def get_clicked_pos(pos, rows, width):   # Mouse position to grid position
@@ -478,11 +571,9 @@ def main(win, width):
     run = True
     done = False
 
-
     while run:
         draw(win, grid, ROWS, width)    # Draw grid
         # WIN.blit(text, textRect)      # Display text on screen
-
         for event in pygame.event.get():    # Loop through events that happend and check what they are
             if event.type == pygame.QUIT:   # If press x then stop game
                 run = False  
@@ -532,7 +623,7 @@ def main(win, width):
                     elif (algorithm_radio.get() == 4):
                         done = dynamic_weighted_A_star(lambda: draw(win, grid, ROWS, width), grid, start, end) 
                     else:    # A-star     
-                        done = A_star(lambda: draw(win, grid, ROWS, width), grid, start, end)    # Use lamda (Anonymous function to pass the function to use it directly)
+                        done = A_star(lambda: draw(win, grid, ROWS, width), grid, start, end, win)    # Use lamda (Anonymous function to pass the function to use it directly)
 
                     stop_time = time.time()
                     print("Time taken: ",stop_time - start_time)
@@ -554,6 +645,13 @@ def main(win, width):
                     option_menu.deiconify()
                     option_menu.update()
                     mainloop()
+
+                if event.key == pygame.K_s:
+                    # # Call the save menu:
+                    # save.deiconify()
+                    # save.update()
+                    # mainloop()
+                    print("Hello")
         
         if (done == True):
             results.deiconify()
@@ -565,4 +663,3 @@ def main(win, width):
     pygame.quit()           
 
 main(WIN, WIDTH)
-      
