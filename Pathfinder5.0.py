@@ -4,6 +4,7 @@ from queue import PriorityQueue  # List and algorithm that returns smallest valu
 import time
 from tkinter import *   # Tkinter for option_menu interface
 from tkinter import ttk
+from tkinter import messagebox
 
 from pygame import color
 
@@ -34,16 +35,64 @@ pygame.init()
 font = pygame.font.SysFont("arial", 10)
 textsurface = font.render("text", TRUE, BLACK)  # "text", antialias, color
 
+boundries_loaded = 0
+
+def load_boundries():
+    messagebox.showinfo(title = None, message = "Boundries loaded")
+    global load_row, load_col, boundries_loaded
+    boundries_loaded = 1
+    load_row = []
+    load_col = []
+    chosen = lstbox_storage.get(ANCHOR)
+    textfile = open("saved_boundries.txt", "r")
+    is_next = 0
+
+    for line in textfile:
+
+        if (is_next == 1):
+            x = line.split(";")
+            for coordinates in x:
+                coordinates = coordinates.strip("()")
+                coordinates = coordinates.split(",")
+                if len(coordinates) == 2:
+                    load_row.append(coordinates[0])
+                    load_col.append(coordinates[1])  
+
+            is_next = 0
+    
+        if (chosen in line):
+            is_next = 1
+    
+    textfile.close()
+
+def delete_boundries():
+    chosen = lstbox_storage.get(ANCHOR)
+    lstbox_storage.delete(ANCHOR)
+    textfile_r = open("saved_boundries.txt", "r")    
+    lines = textfile_r.readlines()
+    textfile_r.close()
+    count = 0
+    for line in lines:
+        if (chosen in line):
+            print(count)
+            del lines[count]
+            del lines[count]
+        count += 1
+
+    textfile_w = open("saved_boundries.txt", "w+")
+    for line in lines:
+        textfile_w.write(line)
+    textfile_w.close()
+
 
 def onsubmit():
     option_menu.quit()
     option_menu.withdraw()
 
-# Tk window:
+# Tk main root window:
 option_menu = Tk()
 option_menu.title("Option menu")
-# option_menu.geometry('350x650+580+120')
-option_menu.geometry('350x480+580+120')
+option_menu.geometry('350x680+580+100')
 # option_menu.config(bg="#447c84")
 
 # Tk variables:
@@ -64,8 +113,10 @@ r_weighted_A_star = Radiobutton(option_menu, text = "Weighted A* ", value = 3, v
 r_dynamic_weighted_A_star = Radiobutton(option_menu, text = "Dynamic Weighted A* ", value = 4, var = algorithm_radio, anchor="w", width = 20)
 chk_diagonal_movement = Checkbutton(option_menu, text = "Diagonal movement ", var = diagonal_chk, anchor="w", width = 20)
 chk_show_score = Checkbutton(option_menu, text = "Show score ", var = show_score_chk, anchor="w", width = 20)
-# lstbox_storage = Listbox(option_menu, width = 30)
-btn_submit = Button(option_menu, text ='Submit', command = onsubmit, height = 2, width = 10)
+lstbox_storage = Listbox(option_menu, width = 30)
+btn_loadboundries = Button(option_menu, text = "Load boundries", command = load_boundries, height = 2, width = 15)
+btn_deleteboundries = Button(option_menu, text = "Delete boundries", command = delete_boundries, height = 2, width = 15)
+btn_submit = Button(option_menu, text = "Submit", command = onsubmit, height = 2, width = 10)
 
 # Tk placement  (Use grid instead of pack for placement on parent
 lbl_distance.grid(column = 0, row = 0, pady = 10, padx = 10)
@@ -79,54 +130,98 @@ r_weighted_A_star.grid(column = 2, row = 5, pady = 10)
 r_dynamic_weighted_A_star.grid(column = 2, row = 6, pady = 10)
 chk_diagonal_movement.grid(column = 0, row = 7, pady = 10)
 chk_show_score.grid(column = 0, row = 8, pady = 10)
-# lstbox_storage.grid(columnspan = 3, row = 9)
-btn_submit.grid(columnspan = 3, row = 10, pady = 20)
+lstbox_storage.grid(columnspan = 2, rowspan = 2, column = 0, row = 9, padx = 10)
+btn_loadboundries.grid(column = 2, row = 9)
+btn_deleteboundries.grid(column = 2, row = 10)
+btn_submit.grid(columnspan = 3, row = 11, pady = 20)
 
-# Populate lists:
-# mylist = ["First", "Second", "Third"]
-# for item in mylist:
-#     # lstbox_storage.insert("end", item)
-#     lstbox_storage.insert(0, item)
+
+# Populate list from saved file with saved file names:
+textfile = open("saved_boundries.txt", "r")
+is_next = 0
+for line in textfile:
+
+    if (line[0] != "("):
+        lstbox_storage.insert("end", line)
+
 
 # Tk functionality
 option_menu.update()
 mainloop()
-    
 
-# Tk window
-results = Tk()
-results.title("Results")
-results.geometry("300x160")
-# Tk objects
-lbl_distance = Label(results, text = "Distance: ", anchor="w", width = 20)
-lbl_distance_a = Label(results, text = " ", anchor="w", width = 20)
-lbl_time_taken = Label(results, text = "Time taken: ", anchor="w", width = 20)
-lbl_time_taken_a = Label(results, text = " ", anchor="w", width = 20)
-btn_close = Button(results, text ='Close', command = results.withdraw, height = 2, width = 10)
-# Tk placement
-lbl_distance.grid(column = 0, row = 0, pady = 10, padx = 5)
-lbl_distance_a.grid(column = 1, row = 0, pady = 10)
-lbl_time_taken.grid(column = 0, row = 1, pady = 10, padx = 5)
-lbl_time_taken_a.grid(column = 1, row = 1, pady = 10)
-btn_close.grid(columnspan = 2, row = 2, pady = 20, padx = 5)
+def show_results():
+    # Global variables:
+    global lbl_distance_a
+    global lbl_time_taken_a
+    global results
+    # Tk window
+    results = Toplevel()
+    results.title("Results")
+    results.geometry("300x160")
+    # Tk objects
+    lbl_distance = Label(results, text = "Distance: ", anchor="w", width = 20)
+    lbl_distance_a = Label(results, text = " ", anchor="w", width = 20)
+    lbl_time_taken = Label(results, text = "Time taken: ", anchor="w", width = 20)
+    lbl_time_taken_a = Label(results, text = " ", anchor="w", width = 20)
+    btn_close = Button(results, text ='Close', command = lambda: [results.quit(), results.withdraw(), option_menu.update()], height = 2, width = 10)
+    # Tk placement
+    lbl_distance.grid(column = 0, row = 0, pady = 10, padx = 5)
+    lbl_distance_a.grid(column = 1, row = 0, pady = 10)
+    lbl_time_taken.grid(column = 0, row = 1, pady = 10, padx = 5)
+    lbl_time_taken_a.grid(column = 1, row = 1, pady = 10)
+    btn_close.grid(columnspan = 2, row = 2, pady = 20, padx = 5)
 
 
-# def saveboundries():
-#     save.quit()
-#     save.withdraw()
+def show_save():
+    # Global variables
+    global save, entry_save_name
+    # Tk window
+    save = Toplevel()
+    save.title("Save boundries")
+    save.geometry("220x200")  
+    # Tk objects
+    lbl_save_name = Label(save, text = "Please enter save name: ", width = 20, padx = 40, pady = 10)
+    entry_save_name = Entry(save, width=30)
+    btn_save = Button(save, text = "Save boundries", command = lambda: [save_boundries_to_file(), save.quit(), save.withdraw(), option_menu.update()], width = 10, height = 2, padx = 40, pady = 10)
+    btn_save_close = Button(save, text = "Close", command = lambda: [save.quit(), save.withdraw(), option_menu.update()], height = 2, width = 10, padx = 40, pady = 10)
+    # Tk placement
+    lbl_save_name.grid(row = 0)
+    entry_save_name.grid(row = 1)
+    btn_save.grid(row = 2)
+    btn_save_close.grid(row = 3)
 
-# # Tk window
-# save = Tk()
-# save.title("Save boundries")
-# save.geometry("300x300")
 
-# # Tk objects
-# lbl_save_boundries = Label(save, text = "Save boundries", anchor = "w", width = 20)
-# btn_save = Button(save, text = "Save boundries", command = saveboundries, width = 20, height = 2)
+def save_boundries_to_file():   # Take boundries placed and put coordinates and name in file
+    myString = entry_save_name.get()
+    if myString == "":
+        messagebox.showerror(title=None, message = "Please enter a name")
+    else:
+        lstbox_storage.insert("end", myString)
+        textfile = open("saved_boundries.txt", "a")
+        textfile.write("\n" + myString + "\n")
+        for i in range(len(row_boundries)):
+            textfile.write("(" + str(row_boundries[i]) + "," + str(col_boundries[i]) + ");")    # Take coordinates in list and write to file
+        textfile.close()
 
-# # Tk placement
-# lbl_save_boundries.grid(column = 0, row = 0)
 
+def save_boundries(grid):   # Take drawn boundries and save coordinates to lists
+    global row_boundries, col_boundries
+    row_boundries = []
+    col_boundries = []
+    for row in grid:
+        for Node in row:    
+            if Node.color == BLACK: 
+                row_boundries.append(Node.row)
+                col_boundries.append(Node.col)
+
+def draw_boundries(grid):
+    global load_row, load_col
+    if (len(load_row) != 0):
+        for i in range(len(load_row)):
+            grid[int(load_row[i])][int(load_col[i])].color = BLACK
+        load_row = []   # Reset lists so that the boundries won't be drawn every time
+        load_col = []
+        
 
 class node: # Class to keep track of nodes (Cubes)
     
@@ -232,7 +327,7 @@ def makeprevious(grid):
         for Node in row:    
             if Node.color == GREEN or Node.color == RED:
                 Node.color = GREY
-
+               
 
 def h(p1, p2):  #Distance measurement. Use manhattan/ absolute distance_radio because easiest to compute
     x1, y1 = p1    # define tuple for position p1 = (1, 9) 
@@ -264,6 +359,7 @@ def reconstruct_path(came_from, current, draw):
         draw()
         counter += 1
     print("\nPath ength: ", counter)
+    show_results()
     lbl_distance_a.config(text = counter)
 
 
@@ -534,7 +630,7 @@ def draw_grid(win, rows, width):    # Draw grid lines
         for j in range(rows):
             pygame.draw.line(win, GREY, (j*gap, 0), (j*gap, width))
 
-
+        
 def draw(win, grid, rows, width):
     win.fill(WHITE)  # At each frame start with blank white page
 
@@ -573,7 +669,10 @@ def main(win, width):
 
     while run:
         draw(win, grid, ROWS, width)    # Draw grid
-        # WIN.blit(text, textRect)      # Display text on screen
+
+        if (boundries_loaded == 1):     # Only draw boundries if the option is selected
+            draw_boundries(grid)
+
         for event in pygame.event.get():    # Loop through events that happend and check what they are
             if event.type == pygame.QUIT:   # If press x then stop game
                 run = False  
@@ -628,6 +727,7 @@ def main(win, width):
                     stop_time = time.time()
                     print("Time taken: ",stop_time - start_time)
                     # lbl_time_taken.text.set(stop_time - start_time) 
+                    # show_results()
                     lbl_time_taken_a.config(text = stop_time - start_time)
 
                 if event.key == pygame.K_c: # Clear if c is pressed
@@ -647,11 +747,11 @@ def main(win, width):
                     mainloop()
 
                 if event.key == pygame.K_s:
-                    # # Call the save menu:
-                    # save.deiconify()
-                    # save.update()
-                    # mainloop()
-                    print("Hello")
+                    # Call the save menu:
+                    save_boundries(grid)
+                    show_save()
+                    save.update()
+                    mainloop()
         
         if (done == True):
             results.deiconify()
